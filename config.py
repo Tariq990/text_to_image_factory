@@ -3,9 +3,9 @@ import os
 
 class Config:
     # ── Models ──────────────────────────────────────────
-    PRIMARY_MODEL = "black-forest-labs/FLUX.1-schnell"
-    FALLBACK_MODEL = "Tongyi-MAI/Z-Image-Turbo"
-    OPTIONAL_MODEL = "Qwen/Qwen-Image"
+    PRIMARY_MODEL = "stabilityai/stable-diffusion-xl-base-1.0"
+    FALLBACK_MODEL = "black-forest-labs/FLUX.1-schnell"
+    OPTIONAL_MODEL = "Tongyi-MAI/Z-Image-Turbo"
 
     # ── Generation defaults ─────────────────────────────
     WIDTH = 1024
