@@ -1,287 +1,147 @@
-# Browser MCP With Personal Brave Profile
+# Text-to-Image Factory
 
-This folder documents the working setup that allowed opencode to control the existing personal Brave browser profile instead of opening a separate automated Brave window.
+A Colab-ready system for converting text, prompts, or story scenes into high-quality AI images.
 
-## Goal
+**Primary model:** Tongyi-MAI/Z-Image-Turbo  
+**Fallback:** black-forest-labs/FLUX.1-schnell  
+**Optional (future):** Qwen/Qwen-Image (for images with readable text)
 
-Use the already-open personal Brave profile through the Browser MCP extension, so browser actions happen in the real user session, tabs, cookies, logins, and local network pages.
+## Quick Start (Colab)
 
-The confirmed working page after the fix was:
+1. Open `notebooks/Run_Text_To_Image_Factory.ipynb` in Google Colab.
+2. Run cells in order:
+   - Mount Drive
+   - Install dependencies
+   - Set Hugging Face token (get one at https://huggingface.co/settings/tokens)
+   - Clone the project
+   - Run single/batch/story mode or launch Gradio
 
-```text
-http://192.168.1.1/#/home
+## Local Installation
+
+```bash
+pip install -r requirements.txt
 ```
 
-Browser MCP successfully saw the personal Brave tab titled `Orange` for the `Flybox 4G+CP06` router page.
+## Usage
 
-## What Was Going Wrong
+### Single prompt
 
-The browser tool was not connected to the personal Brave profile. It kept opening a separate Brave window with empty tabs and the Browser MCP welcome page.
-
-The separate window was caused by a Playwright MCP process that launched Brave with a temporary profile directory:
-
-```text
-C:\Users\tarik\AppData\Local\ms-playwright-mcp\mcp-chrome-for-testing-8bca82c
+```bash
+python app.py --mode single --prompt "A cinematic old library at night" --style "cinematic realistic"
 ```
 
-That temporary profile is not the personal Brave profile. It does not contain the user's normal tabs, cookies, logins, or extension state.
+### Batch generation
 
-The process that revealed this was:
-
-```text
-@playwright/mcp@latest --browser=chromium --executable-path=C:\Program Files\BraveSoftware\Brave-Browser\Application\brave.exe
+```bash
+python app.py --mode batch --prompts input/prompts.txt --style "epic fantasy concept art"
 ```
 
-Because of that process, the MCP browser tools were controlling the Playwright-created Brave profile, not the Brave profile where the Browser MCP extension had been connected.
+### Story mode
 
-## Important Difference
-
-There are two different browser MCP approaches involved here:
-
-```text
-@playwright/mcp
+```bash
+python app.py --mode story --story input/story.txt --style "dark fantasy book cover"
 ```
 
-This launches and controls its own browser context. If no `--user-data-dir` is provided, it creates a temporary profile under `ms-playwright-mcp`. This is why a new Brave window appeared.
+### Gradio UI
 
-```text
-@browsermcp/mcp
+```bash
+python app.py --mode gradio
 ```
 
-This waits for the Browser MCP browser extension to connect from the real browser tab. This is the approach that works with the personal Brave profile.
+## CLI Arguments
 
-## Fix That Made It Work
+| Argument         | Description                          |
+|------------------|--------------------------------------|
+| `--mode`         | single, batch, story, gradio         |
+| `--model`        | Override primary model               |
+| `--fallback-model` | Override fallback model           |
+| `--output-dir`   | Custom output directory              |
+| `--width`        | Image width (default: 1024)          |
+| `--height`       | Image height (default: 1024)         |
+| `--steps`        | Inference steps                      |
+| `--seed`         | Random seed                          |
+| `--num-images`   | Number of images to generate         |
+| `--style`        | Style preset (see config.py)         |
+| `--prompt`       | Prompt text (single mode)            |
+| `--prompts`      | Prompts file (batch mode)            |
+| `--story`        | Story file (story mode)              |
 
-The global opencode config had the `opencode-browser` plugin enabled. That plugin caused the active browser tools to use Playwright MCP and open a temporary Brave profile.
+## Style Presets
 
-The plugin was removed from:
+- cinematic realistic
+- dark fantasy book cover
+- historical realistic
+- photorealistic YouTube thumbnail
+- epic fantasy concept art
+- anime cinematic
+- mystery noir
+- horror atmosphere
 
-```text
-C:\Users\tarik\.config\opencode\opencode.json
+## Output Structure
+
+```
+output/
+├── images/          # Generated PNG images
+├── metadata/        # JSON metadata per image
+└── grids/           # (future) composite grids
 ```
 
-Before the fix, the config ended with:
-
-```json
-{
-  "plugin": [
-    "opencode-browser"
-  ]
-}
-```
-
-After the fix, the plugin block was removed. The global config now keeps `browsermcp` enabled and leaves `playwright` disabled:
-
-```json
-{
-  "$schema": "https://opencode.ai/config.json",
-  "mcp": {
-    "playwright": {
-      "command": "npx",
-      "args": [
-        "@playwright/mcp@latest",
-        "--browser=chromium",
-        "--executable-path=C:\\Program Files\\BraveSoftware\\Brave-Browser\\Application\\brave.exe"
-      ],
-      "enabled": false
-    },
-    "browsermcp": {
-      "command": "npx",
-      "args": [
-        "@browsermcp/mcp@latest"
-      ],
-      "enabled": true,
-      "type": "local"
-    }
-  }
-}
-```
-
-The project config in this folder also enables Browser MCP:
-
-```text
-C:\Users\tarik\Desktop\mcp\opencode.json
-```
-
-```json
-{
-  "$schema": "https://opencode.ai/config.json",
-  "mcp": {
-    "browsermcp": {
-      "type": "local",
-      "command": [
-        "npx",
-        "@browsermcp/mcp@latest"
-      ],
-      "enabled": true
-    }
-  }
-}
-```
-
-## Required Restart
-
-opencode reads config at startup. After removing `opencode-browser`, opencode had to be fully restarted.
-
-Without a restart, the already-running Playwright MCP browser tools could still point at the temporary Brave profile.
-
-## Correct Connection Steps
-
-Use this order when reconnecting later:
-
-1. Make sure opencode has been restarted after the config change.
-2. Open the personal Brave profile normally.
-3. Open the tab that should be controlled.
-4. Click the Browser MCP extension icon in Brave.
-5. Click `Connect` from that exact tab/window.
-6. Ask opencode to inspect the browser.
-
-When the connection is correct, Browser MCP should report the real tab URL from the personal Brave session, not `about:blank` or `https://docs.browsermcp.io/` from a new automated window.
-
-## How We Confirmed It Worked
-
-After restarting opencode and reconnecting from the personal Brave profile, Browser MCP returned this page:
-
-```text
-Page URL: http://192.168.1.1/#/home
-Page Title: Orange
-```
-
-The snapshot included the router UI text:
-
-```text
-Flybox 4G+CP06
-الاتصال متصل
-شبكة 4G+
-استخدامي
-تسجيل الدخول كمسؤول
-```
-
-That confirmed the MCP tool was finally connected to the user's real Brave browser tab.
+Each image has a matching metadata JSON file with: model name, prompt, final prompt, seed, steps, dimensions, timestamp, output path.
 
 ## Troubleshooting
 
-If opencode says there is no browser extension connection, reconnect from the Brave extension:
+### CUDA Out of Memory
 
-```text
-No connection to browser extension
+- Clear cache: `torch.cuda.empty_cache()`
+- Reduce width/height to 768 or 512
+- Reduce steps (4 for FLUX, 6 for Z-Image-Turbo)
+- Set `batch_size=1`
+- The system auto-reduces on OOM
+
+### Model fails to load
+
+The system automatically falls back to FLUX.1-schnell. Make sure you're logged in to Hugging Face for gated models.
+
+### Colab Free tier
+
+Recommended settings:
+- Width/Height: 768x768 or 1024x1024
+- Steps: 6-8 for Z-Image-Turbo, 4 for FLUX
+- Batch size: 1
+- Use fp16 (enabled by default)
+
+## Project Structure
+
+```
+text_to_image_factory/
+├── app.py                # Main CLI and Gradio entry point
+├── config.py             # Configuration and defaults
+├── requirements.txt      # Dependencies
+├── README.md             # This file
+├── input/                # Input text files
+│   ├── story.txt
+│   └── prompts.txt
+├── output/               # Generated outputs
+│   ├── images/
+│   ├── metadata/
+│   └── grids/
+├── modules/
+│   ├── scene_splitter.py # Story text → scene splitting
+│   ├── prompt_builder.py # Prompt construction with style presets
+│   ├── image_generator.py # Model loading and image generation
+│   ├── storage.py        # Save images and metadata
+│   └── utils.py          # Logging, VRAM, Colab helpers
+└── notebooks/
+    └── Run_Text_To_Image_Factory.ipynb
 ```
 
-If a new Brave window opens with empty tabs, the setup is probably using Playwright MCP again instead of Browser MCP extension mode.
+## Extending
 
-Check for a temporary profile path like this in running Brave processes:
+To add Qwen-Image support later:
+- Add the model to `config.py` (OPTIONAL_MODEL already set to Qwen/Qwen-Image)
+- Add a `QwenImageGenerator` class in `modules/image_generator.py`
+- Add a fallback chain in the existing generator
 
-```text
-ms-playwright-mcp
-```
-
-If it appears, make sure the `opencode-browser` plugin is not enabled and restart opencode.
-
-## Key Takeaway
-
-The working setup depends on using `@browsermcp/mcp` with the Browser MCP extension connected from the personal Brave profile, and not using `opencode-browser` or `@playwright/mcp` as the active browser controller.
-
-## Quick Instructions For Any Agent
-
-If another agent starts from zero, this is the shortest reliable path:
-
-1. Do not use Playwright MCP browser tools for the personal Brave profile.
-2. Use Browser MCP extension mode only.
-3. Confirm `opencode-browser` is not enabled in `C:\Users\tarik\.config\opencode\opencode.json`.
-4. Confirm `browsermcp` is enabled and points to `@browsermcp/mcp@latest`.
-5. Restart opencode after any config change.
-6. Tell the user to open the real Brave profile and click `Connect` from the Browser MCP extension in the target tab.
-7. Use the Browser MCP snapshot tool and verify the returned URL matches the user's real tab.
-
-Successful connection means the snapshot shows a real user tab, for example:
-
-```text
-Page URL: http://192.168.1.1/#/home
-Page Title: Orange
-```
-
-Failed connection usually looks like one of these:
-
-```text
-No connection to browser extension
-```
-
-```text
-Page URL: about:blank
-Page Title: Welcome - Browser MCP
-```
-
-## Agent Do Not Do List
-
-Do not re-enable this plugin:
-
-```json
-"plugin": [
-  "opencode-browser"
-]
-```
-
-Do not assume that launching Brave through Playwright means the personal profile is connected. This command opens an automation-controlled browser context and can create a temporary profile:
-
-```text
-npx @playwright/mcp@latest --browser=chromium --executable-path=C:\Program Files\BraveSoftware\Brave-Browser\Application\brave.exe
-```
-
-Do not treat a Brave window as personal unless the process is using the normal Brave user data directory:
-
-```text
-C:\Users\tarik\AppData\Local\BraveSoftware\Brave-Browser\User Data
-```
-
-If the process uses this directory, it is not the personal profile:
-
-```text
-C:\Users\tarik\AppData\Local\ms-playwright-mcp\...
-```
-
-## Fast Process Check
-
-On Windows, this command helps verify whether Playwright opened a temporary Brave profile:
-
-```powershell
-Get-CimInstance Win32_Process | Where-Object { $_.Name -match 'node|npx|brave' -and $_.CommandLine -match 'mcp|playwright|browsermcp|user-data-dir|remote-debugging' } | Format-List ProcessId,Name,CommandLine
-```
-
-Look for `ms-playwright-mcp`. If it appears in an active Brave process, that browser is not the personal Brave profile.
-
-## Exact Working Mental Model
-
-Browser MCP does not magically attach to every open browser. The connection is made by the Browser MCP extension from a specific Brave tab.
-
-The correct flow is:
-
-```text
-opencode starts @browsermcp/mcp
-personal Brave profile has Browser MCP extension installed
-user clicks Connect in the extension from the target tab
-Browser MCP tools now see that real tab
-```
-
-The incorrect flow is:
-
-```text
-opencode/plugin starts @playwright/mcp
-Playwright launches Brave executable
-Brave opens with a temporary ms-playwright-mcp profile
-agent sees blank tabs instead of the user's real tabs
-```
-
-## Minimum Success Criteria
-
-Before saying it works, an agent must verify all of these:
-
-1. No active browser tool is controlling a Brave process under `ms-playwright-mcp`.
-2. The Browser MCP extension reports connected in the user's personal Brave tab.
-3. The snapshot returns the expected URL from the user's personal session.
-4. The snapshot page content matches what the user sees on screen.
-
-For this setup, the verified expected URL was:
-
-```text
-http://192.168.1.1/#/home
-```
+To add video generation:
+- Add `modules/video_generator.py`
+- Extend `app.py` with a `--mode video` option

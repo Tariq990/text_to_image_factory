@@ -5,7 +5,7 @@ class Config:
     # ── Models ──────────────────────────────────────────
     PRIMARY_MODEL = "Tongyi-MAI/Z-Image-Turbo"
     FALLBACK_MODEL = "black-forest-labs/FLUX.1-schnell"
-    OPTIONAL_MODEL = "Qwen/Qwen-VL-Chat"
+    OPTIONAL_MODEL = "Qwen/Qwen-Image"
 
     # ── Generation defaults ─────────────────────────────
     WIDTH = 1024
