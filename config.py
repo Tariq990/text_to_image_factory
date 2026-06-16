@@ -35,6 +35,7 @@ class Config:
     # ── Device ──────────────────────────────────────────
     DEVICE = None
     DTYPE = None
+    MODEL_VARIANT = "fp16"
 
     @classmethod
     def get_device(cls):

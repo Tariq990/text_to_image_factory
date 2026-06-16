@@ -26,25 +26,23 @@ class ImageGenerator:
             if self.config.HF_TOKEN:
                 login(token=self.config.HF_TOKEN)
 
-            if "flux" in model.lower() or "schnell" in model.lower():
-                self.pipe = FluxPipeline.from_pretrained(
-                    model,
-                    torch_dtype=self.config.DTYPE,
-                    use_safetensors=True,
-                )
-            else:
-                self.pipe = DiffusionPipeline.from_pretrained(
-                    model,
-                    torch_dtype=self.config.DTYPE,
-                    use_safetensors=True,
-                )
+            common_kwargs = dict(
+                torch_dtype=self.config.DTYPE,
+                use_safetensors=True,
+                variant=self.config.MODEL_VARIANT,
+            )
 
-            self.pipe = self.pipe.to(self.device)
+            if "flux" in model.lower() or "schnell" in model.lower():
+                self.pipe = FluxPipeline.from_pretrained(model, **common_kwargs)
+            else:
+                self.pipe = DiffusionPipeline.from_pretrained(model, **common_kwargs)
 
             if self.device == "cuda":
                 self.pipe.enable_model_cpu_offload()
                 if hasattr(self.pipe, "enable_attention_slicing"):
                     self.pipe.enable_attention_slicing()
+            else:
+                self.pipe = self.pipe.to(self.device)
 
             self.model_name = model
             logger.info(f"Model loaded: {model}")
@@ -57,23 +55,23 @@ class ImageGenerator:
         model = self.config.FALLBACK_MODEL
         logger.warning(f"Falling back to: {model}")
         try:
+            common_kwargs = dict(
+                torch_dtype=self.config.DTYPE,
+                use_safetensors=True,
+                variant=self.config.MODEL_VARIANT,
+            )
+
             if "flux" in model.lower() or "schnell" in model.lower():
-                self.pipe = FluxPipeline.from_pretrained(
-                    model,
-                    torch_dtype=self.config.DTYPE,
-                    use_safetensors=True,
-                )
+                self.pipe = FluxPipeline.from_pretrained(model, **common_kwargs)
             else:
-                self.pipe = DiffusionPipeline.from_pretrained(
-                    model,
-                    torch_dtype=self.config.DTYPE,
-                    use_safetensors=True,
-                )
-            self.pipe = self.pipe.to(self.device)
+                self.pipe = DiffusionPipeline.from_pretrained(model, **common_kwargs)
+
             if self.device == "cuda":
                 self.pipe.enable_model_cpu_offload()
                 if hasattr(self.pipe, "enable_attention_slicing"):
                     self.pipe.enable_attention_slicing()
+            else:
+                self.pipe = self.pipe.to(self.device)
             self.model_name = model
             logger.info(f"Fallback model loaded: {model}")
         except Exception as e2:
