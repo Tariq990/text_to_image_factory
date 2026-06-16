@@ -3,8 +3,8 @@ import os
 
 class Config:
     # ── Models ──────────────────────────────────────────
-    PRIMARY_MODEL = "Tongyi-MAI/Z-Image-Turbo"
-    FALLBACK_MODEL = "black-forest-labs/FLUX.1-schnell"
+    PRIMARY_MODEL = "black-forest-labs/FLUX.1-schnell"
+    FALLBACK_MODEL = "Tongyi-MAI/Z-Image-Turbo"
     OPTIONAL_MODEL = "Qwen/Qwen-Image"
 
     # ── Generation defaults ─────────────────────────────
