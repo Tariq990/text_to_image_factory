@@ -1,0 +1,13 @@
+torch>=2.1.0
+torchvision>=0.16.0
+diffusers>=0.30.0
+transformers>=4.40.0
+accelerate>=0.30.0
+safetensors>=0.4.0
+pillow>=10.0.0
+gradio>=4.0.0
+numpy>=1.24.0
+opencv-python>=4.8.0
+huggingface_hub>=0.20.0
+sentencepiece>=0.1.99
+protobuf>=3.20.0
