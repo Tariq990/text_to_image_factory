@@ -31,6 +31,7 @@ class ImageGenerator:
                     kwargs = dict(
                         torch_dtype=self.config.DTYPE,
                         use_safetensors=True,
+                        low_cpu_mem_usage=True,
                     )
                     if variant:
                         kwargs["variant"] = variant
@@ -70,6 +71,7 @@ class ImageGenerator:
                     kwargs = dict(
                         torch_dtype=self.config.DTYPE,
                         use_safetensors=True,
+                        low_cpu_mem_usage=True,
                     )
                     if variant:
                         kwargs["variant"] = variant
