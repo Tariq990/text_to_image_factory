@@ -31,7 +31,6 @@ class ImageGenerator:
                     kwargs = dict(
                         torch_dtype=self.config.DTYPE,
                         use_safetensors=True,
-                        low_cpu_mem_usage=True,
                     )
                     if variant:
                         kwargs["variant"] = variant
@@ -52,12 +51,21 @@ class ImageGenerator:
                     variant_tag = f" (variant={variant})" if variant else ""
                     logger.info(f"Model loaded: {model}{variant_tag}")
                     break
+                except KeyboardInterrupt:
+                    if attempt == 0 and variant is not None:
+                        logger.warning("Interrupted during model load, retrying without variant...")
+                        continue
+                    logger.error("Interrupted during model load, all attempts exhausted")
+                    raise
                 except Exception as e:
                     if attempt == 0 and variant is not None:
                         logger.warning(f"Failed with variant={variant}, retrying without variant: {e}")
                         continue
                     raise
 
+        except KeyboardInterrupt:
+            logger.error("Model loading interrupted by user")
+            raise
         except Exception as e:
             logger.error(f"Failed to load primary model {model}: {e}")
             self._load_fallback()
@@ -71,7 +79,6 @@ class ImageGenerator:
                     kwargs = dict(
                         torch_dtype=self.config.DTYPE,
                         use_safetensors=True,
-                        low_cpu_mem_usage=True,
                     )
                     if variant:
                         kwargs["variant"] = variant
