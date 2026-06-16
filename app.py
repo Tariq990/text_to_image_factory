@@ -211,6 +211,8 @@ def cli_main():
         cfg.PRIMARY_MODEL = args.model
     if args.fallback_model:
         cfg.FALLBACK_MODEL = args.fallback_model
+    if args.variant:
+        cfg.MODEL_VARIANT = args.variant
 
     seed = args.seed if args.seed is not None else None
 

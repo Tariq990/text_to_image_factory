@@ -52,6 +52,7 @@ def parse_cli_args():
     parser.add_argument("--steps", type=int, default=None)
     parser.add_argument("--seed", type=int, default=None)
     parser.add_argument("--num-images", type=int, default=1)
+    parser.add_argument("--variant", default=None)
     parser.add_argument("--style", default=None)
     parser.add_argument("--prompt", default=None)
     parser.add_argument("--prompts", default=None)

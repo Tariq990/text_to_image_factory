@@ -26,26 +26,36 @@ class ImageGenerator:
             if self.config.HF_TOKEN:
                 login(token=self.config.HF_TOKEN)
 
-            common_kwargs = dict(
-                torch_dtype=self.config.DTYPE,
-                use_safetensors=True,
-                variant=self.config.MODEL_VARIANT,
-            )
+            for attempt, variant in enumerate([self.config.MODEL_VARIANT, None]):
+                try:
+                    kwargs = dict(
+                        torch_dtype=self.config.DTYPE,
+                        use_safetensors=True,
+                    )
+                    if variant:
+                        kwargs["variant"] = variant
 
-            if "flux" in model.lower() or "schnell" in model.lower():
-                self.pipe = FluxPipeline.from_pretrained(model, **common_kwargs)
-            else:
-                self.pipe = DiffusionPipeline.from_pretrained(model, **common_kwargs)
+                    if "flux" in model.lower() or "schnell" in model.lower():
+                        self.pipe = FluxPipeline.from_pretrained(model, **kwargs)
+                    else:
+                        self.pipe = DiffusionPipeline.from_pretrained(model, **kwargs)
 
-            if self.device == "cuda":
-                self.pipe.enable_model_cpu_offload()
-                if hasattr(self.pipe, "enable_attention_slicing"):
-                    self.pipe.enable_attention_slicing()
-            else:
-                self.pipe = self.pipe.to(self.device)
+                    if self.device == "cuda":
+                        self.pipe.enable_model_cpu_offload()
+                        if hasattr(self.pipe, "enable_attention_slicing"):
+                            self.pipe.enable_attention_slicing()
+                    else:
+                        self.pipe = self.pipe.to(self.device)
 
-            self.model_name = model
-            logger.info(f"Model loaded: {model}")
+                    self.model_name = model
+                    variant_tag = f" (variant={variant})" if variant else ""
+                    logger.info(f"Model loaded: {model}{variant_tag}")
+                    break
+                except Exception as e:
+                    if attempt == 0 and variant is not None:
+                        logger.warning(f"Failed with variant={variant}, retrying without variant: {e}")
+                        continue
+                    raise
 
         except Exception as e:
             logger.error(f"Failed to load primary model {model}: {e}")
@@ -55,23 +65,32 @@ class ImageGenerator:
         model = self.config.FALLBACK_MODEL
         logger.warning(f"Falling back to: {model}")
         try:
-            common_kwargs = dict(
-                torch_dtype=self.config.DTYPE,
-                use_safetensors=True,
-                variant=self.config.MODEL_VARIANT,
-            )
+            for attempt, variant in enumerate([self.config.MODEL_VARIANT, None]):
+                try:
+                    kwargs = dict(
+                        torch_dtype=self.config.DTYPE,
+                        use_safetensors=True,
+                    )
+                    if variant:
+                        kwargs["variant"] = variant
 
-            if "flux" in model.lower() or "schnell" in model.lower():
-                self.pipe = FluxPipeline.from_pretrained(model, **common_kwargs)
-            else:
-                self.pipe = DiffusionPipeline.from_pretrained(model, **common_kwargs)
+                    if "flux" in model.lower() or "schnell" in model.lower():
+                        self.pipe = FluxPipeline.from_pretrained(model, **kwargs)
+                    else:
+                        self.pipe = DiffusionPipeline.from_pretrained(model, **kwargs)
 
-            if self.device == "cuda":
-                self.pipe.enable_model_cpu_offload()
-                if hasattr(self.pipe, "enable_attention_slicing"):
-                    self.pipe.enable_attention_slicing()
-            else:
-                self.pipe = self.pipe.to(self.device)
+                    if self.device == "cuda":
+                        self.pipe.enable_model_cpu_offload()
+                        if hasattr(self.pipe, "enable_attention_slicing"):
+                            self.pipe.enable_attention_slicing()
+                    else:
+                        self.pipe = self.pipe.to(self.device)
+                    break
+                except Exception as e:
+                    if attempt == 0 and variant is not None:
+                        logger.warning(f"Fallback: failed with variant={variant}, retrying: {e}")
+                        continue
+                    raise
             self.model_name = model
             logger.info(f"Fallback model loaded: {model}")
         except Exception as e2:
