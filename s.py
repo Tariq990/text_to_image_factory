@@ -12,7 +12,6 @@ r = subprocess.run([sys.executable, "app.py",
     "--mode", "single",
     "--width", "768",
     "--height", "768",
-    "--steps", "6",
     "--seed", "42",
     "--prompt", "A cat sitting on a stack of ancient books, cinematic lighting",
     "--style", "cinematic realistic"])

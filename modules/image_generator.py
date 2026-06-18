@@ -3,7 +3,8 @@ import logging
 import time
 import torch
 
-from diffusers import DiffusionPipeline, FluxPipeline
+from diffusers import DiffusionPipeline, FluxPipeline, FluxTransformer2DModel
+from transformers import T5EncoderModel
 from huggingface_hub import login
 
 logger = logging.getLogger(__name__)
@@ -28,6 +29,12 @@ class ImageGenerator:
             if self.config.HF_TOKEN:
                 login(token=self.config.HF_TOKEN)
 
+            is_flux_dev = "flux" in model.lower() and "dev" in model.lower()
+
+            if is_flux_dev and self.config.FLUX_FP8:
+                self._load_flux_fp8(model)
+                return
+
             for attempt, variant in enumerate([self.config.MODEL_VARIANT, None]):
                 try:
                     kwargs = dict(
@@ -47,6 +54,10 @@ class ImageGenerator:
                         self.pipe.enable_model_cpu_offload()
                         if hasattr(self.pipe, "enable_attention_slicing"):
                             self.pipe.enable_attention_slicing()
+                        if hasattr(self.pipe.vae, "enable_slicing"):
+                            self.pipe.vae.enable_slicing()
+                        if hasattr(self.pipe.vae, "enable_tiling"):
+                            self.pipe.vae.enable_tiling()
                     else:
                         self.pipe = self.pipe.to(self.device)
 
@@ -73,6 +84,44 @@ class ImageGenerator:
             logger.error(f"Failed to load primary model {model}: {e}")
             self._load_fallback()
 
+    def _load_flux_fp8(self, model):
+        from optimum.quanto import freeze, qfloat8, quantize
+
+        dtype = torch.bfloat16
+        logger.info("Loading FLUX.1-dev with FP8 quantization...")
+
+        transformer = FluxTransformer2DModel.from_single_file(
+            "https://huggingface.co/Kijai/flux-fp8/blob/main/flux1-dev-fp8.safetensors",
+            torch_dtype=dtype,
+        )
+        quantize(transformer, weights=qfloat8)
+        freeze(transformer)
+
+        text_encoder_2 = T5EncoderModel.from_pretrained(
+            model, subfolder="text_encoder_2", torch_dtype=dtype,
+            cache_dir=self.config.MODEL_CACHE_DIR,
+        )
+        quantize(text_encoder_2, weights=qfloat8)
+        freeze(text_encoder_2)
+
+        self.pipe = FluxPipeline.from_pretrained(
+            model,
+            transformer=None,
+            text_encoder_2=None,
+            torch_dtype=dtype,
+            cache_dir=self.config.MODEL_CACHE_DIR,
+        )
+        self.pipe.transformer = transformer
+        self.pipe.text_encoder_2 = text_encoder_2
+
+        if self.device == "cuda":
+            self.pipe.enable_model_cpu_offload()
+            self.pipe.vae.enable_slicing()
+            self.pipe.vae.enable_tiling()
+
+        self.model_name = model
+        logger.info("FLUX.1-dev FP8 loaded successfully")
+
     def _load_fallback(self):
         model = self.config.FALLBACK_MODEL
         logger.warning(f"Falling back to: {model}")
@@ -97,6 +146,10 @@ class ImageGenerator:
                         self.pipe.enable_model_cpu_offload()
                         if hasattr(self.pipe, "enable_attention_slicing"):
                             self.pipe.enable_attention_slicing()
+                        if hasattr(self.pipe.vae, "enable_slicing"):
+                            self.pipe.vae.enable_slicing()
+                        if hasattr(self.pipe.vae, "enable_tiling"):
+                            self.pipe.vae.enable_tiling()
                     else:
                         self.pipe = self.pipe.to(self.device)
                     break
@@ -112,8 +165,11 @@ class ImageGenerator:
             raise RuntimeError("Both primary and fallback models failed to load")
 
     def _get_steps(self):
-        if "schnell" in self.model_name.lower() or "flux" in self.model_name.lower():
+        model = self.model_name.lower()
+        if "schnell" in model:
             return self.config.STEPS_FALLBACK
+        if "flux" in model:
+            return self.config.STEPS_PRIMARY
         return self.config.STEPS_PRIMARY
 
     def generate(self, prompt: str, negative_prompt: str = "", seed: int = None, width: int = None,
@@ -145,7 +201,6 @@ class ImageGenerator:
             try:
                 kwargs = {
                     "prompt": prompt,
-                    "negative_prompt": negative_prompt if negative_prompt else None,
                     "width": width,
                     "height": height,
                     "num_inference_steps": steps,
@@ -153,8 +208,12 @@ class ImageGenerator:
                     "num_images_per_prompt": 1,
                 }
 
-                if negative_prompt and "flux" in self.model_name.lower():
-                    kwargs.pop("negative_prompt")
+                is_flux = "flux" in self.model_name.lower()
+                if is_flux:
+                    guidance = self.config.GUIDANCE_SCALE if "dev" in self.model_name.lower() else 0.0
+                    kwargs["guidance_scale"] = guidance
+                else:
+                    kwargs["negative_prompt"] = negative_prompt if negative_prompt else None
 
                 output = self.pipe(**kwargs)
                 image = output.images[0]

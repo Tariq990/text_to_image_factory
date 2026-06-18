@@ -3,15 +3,17 @@ import os
 
 class Config:
     # ── Models ──────────────────────────────────────────
-    PRIMARY_MODEL = "stabilityai/stable-diffusion-xl-base-1.0"
+    PRIMARY_MODEL = "black-forest-labs/FLUX.1-dev"
     FALLBACK_MODEL = "black-forest-labs/FLUX.1-schnell"
     OPTIONAL_MODEL = "Tongyi-MAI/Z-Image-Turbo"
 
     # ── Generation defaults ─────────────────────────────
     WIDTH = 1024
     HEIGHT = 1024
-    STEPS_PRIMARY = 8
+    STEPS_PRIMARY = 20
     STEPS_FALLBACK = 4
+    FLUX_FP8 = True
+    GUIDANCE_SCALE = 3.5
     BATCH_SIZE = 1
     SEED = 42
     OUTPUT_FORMAT = "PNG"
