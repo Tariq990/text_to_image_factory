@@ -28,6 +28,7 @@ class Config:
     # Drive path used inside Colab
     DRIVE_BASE = "/content/drive/MyDrive/text_to_image_factory"
     DRIVE_OUTPUT = os.path.join(DRIVE_BASE, "output")
+    MODEL_CACHE_DIR = os.path.join(DRIVE_BASE, "model_cache")
 
     # ── Hugging Face ────────────────────────────────────
     HF_TOKEN = os.environ.get("HF_TOKEN", None)
@@ -98,6 +99,18 @@ class Config:
             base_dir = cls.BASE_DIR
         for d in [cls.INPUT_DIR, cls.IMAGES_DIR, cls.METADATA_DIR, cls.GRIDS_DIR]:
             os.makedirs(d, exist_ok=True)
+
+    @classmethod
+    def ensure_cache_dirs(cls):
+        os.makedirs(cls.MODEL_CACHE_DIR, exist_ok=True)
+
+    @classmethod
+    def setup_cache(cls):
+        if cls.is_colab():
+            cls.ensure_cache_dirs()
+            os.environ["HF_HOME"] = cls.MODEL_CACHE_DIR
+            os.environ["HF_HUB_CACHE"] = os.path.join(cls.MODEL_CACHE_DIR, "hub")
+            os.environ["XDG_CACHE_HOME"] = cls.MODEL_CACHE_DIR
 
     @classmethod
     def is_colab(cls):

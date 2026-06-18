@@ -22,6 +22,8 @@ class ImageGenerator:
         logger.info(f"Loading model: {model}")
         logger.info(f"Device: {self.device}")
 
+        self.config.setup_cache()
+
         try:
             if self.config.HF_TOKEN:
                 login(token=self.config.HF_TOKEN)
@@ -31,6 +33,7 @@ class ImageGenerator:
                     kwargs = dict(
                         torch_dtype=self.config.DTYPE,
                         use_safetensors=True,
+                        cache_dir=self.config.MODEL_CACHE_DIR,
                     )
                     if variant:
                         kwargs["variant"] = variant
@@ -73,12 +76,14 @@ class ImageGenerator:
     def _load_fallback(self):
         model = self.config.FALLBACK_MODEL
         logger.warning(f"Falling back to: {model}")
+        self.config.setup_cache()
         try:
             for attempt, variant in enumerate([self.config.MODEL_VARIANT, None]):
                 try:
                     kwargs = dict(
                         torch_dtype=self.config.DTYPE,
                         use_safetensors=True,
+                        cache_dir=self.config.MODEL_CACHE_DIR,
                     )
                     if variant:
                         kwargs["variant"] = variant
