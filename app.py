@@ -160,9 +160,8 @@ def _start_cloudflared(port=7860):
     t = threading.Thread(target=_tunnel, daemon=True)
     t.start()
 
-def launch_gradio(cfg):
+def create_gradio_app(cfg):
     import gradio as gr
-
     cfg.ensure_dirs()
 
     def generate(prompt, style, seed, width, height, steps, num_images, mode, file_input):
@@ -231,6 +230,10 @@ def launch_gradio(cfg):
             outputs=[gallery, status, out_prompts, out_seeds],
         )
 
+    return ui
+
+def launch_gradio(cfg):
+    ui = create_gradio_app(cfg)
     _start_cloudflared(7860)
     ui.launch(share=True, debug=False)
 
