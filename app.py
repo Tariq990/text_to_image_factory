@@ -127,6 +127,39 @@ def run_story(cfg, story_file: str, style: str = None, seed: int = None,
     return saved
 
 
+def _start_cloudflared(port=7860):
+    import subprocess, re, threading, shutil, platform, urllib.request
+    def is_installed():
+        return shutil.which("cloudflared") is not None
+    def install():
+        logger.info("Installing cloudflared...")
+        arch = platform.machine()
+        url = ("https://github.com/cloudflare/cloudflared/releases/latest/download/"
+               "cloudflared-linux-arm64" if "aarch64" in arch or "arm64" in arch
+               else "cloudflared-linux-amd64")
+        urllib.request.urlretrieve(url, "/usr/local/bin/cloudflared")
+        subprocess.run(["chmod", "+x", "/usr/local/bin/cloudflared"], check=True)
+        logger.info("cloudflared installed")
+    if not is_installed():
+        install()
+    def _tunnel():
+        proc = subprocess.Popen(
+            ["cloudflared", "tunnel", "--url", f"http://127.0.0.1:{port}"],
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            universal_newlines=True, bufsize=1
+        )
+        for line in iter(proc.stdout.readline, ''):
+            m = re.search(r'https://[a-zA-Z0-9_-]+\.trycloudflare\.com', line)
+            if m:
+                logger.info(f"cloudflared public URL: {m.group(0)}")
+                print(f"\n{'='*60}")
+                print(f"  PUBLIC URL: {m.group(0)}")
+                print(f"{'='*60}\n")
+                break
+        proc.wait()
+    t = threading.Thread(target=_tunnel, daemon=True)
+    t.start()
+
 def launch_gradio(cfg):
     import gradio as gr
 
@@ -198,6 +231,7 @@ def launch_gradio(cfg):
             outputs=[gallery, status, out_prompts, out_seeds],
         )
 
+    _start_cloudflared(7860)
     ui.launch(share=True, debug=False)
 
 

@@ -1,4 +1,16 @@
-import subprocess, sys, os
+import subprocess, sys, os, urllib.request
+
+MODE = sys.argv[1] if len(sys.argv) > 1 else "smoke"
+
+if MODE == "tunnel":
+    port = sys.argv[2] if len(sys.argv) > 2 else "7860"
+    url = "https://raw.githubusercontent.com/Tariq990/text_to_image_factory/master/tunnel.py"
+    data = urllib.request.urlopen(url).read()
+    with open("/content/tunnel.py", "wb") as f:
+        f.write(data)
+    subprocess.run([sys.executable, "/content/tunnel.py", port])
+    sys.exit(0)
+
 os.chdir("/content")
 subprocess.run(["rm", "-rf", "/content/t2f"])
 r = subprocess.run(["git", "clone", "--depth", "1",
