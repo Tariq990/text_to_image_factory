@@ -3,7 +3,7 @@ import os
 
 class Config:
     # ── Models ──────────────────────────────────────────
-    PRIMARY_MODEL = "black-forest-labs/FLUX.1-dev"
+    PRIMARY_MODEL = "RunDiffusion/Juggernaut-XL-v9"
     FALLBACK_MODEL = "black-forest-labs/FLUX.1-schnell"
     OPTIONAL_MODEL = "Tongyi-MAI/Z-Image-Turbo"
 
